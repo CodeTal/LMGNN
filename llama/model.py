@@ -15,7 +15,7 @@ from fairscale.nn.model_parallel.layers import (
 )
 from torch import nn
 
-from torch_geometric.nn import GATConv
+from torch_geometric.nn import GATConv, GCNConv
 
 
 @dataclass
@@ -507,6 +507,9 @@ class GAT(nn.Module):
 class LMGNN(Transformer):
     def __init__(self, params: ModelArgs, in_dim, hidden_dim, out_dim, heads, num_layers=5):
         super().__init__(params)
+        # self.conv0 = GCNConv(in_dim, out_dim).float()
+        # self.conv1 = GCNConv(hidden_dim, hidden_dim)
+        # self.linear = nn.Linear(in_dim, out_dim)
         self.gnn = GAT(in_dim, hidden_dim, out_dim, heads, num_layers)
     
     def load_LM_state_dict(self, state_dict):
@@ -520,21 +523,22 @@ class LMGNN(Transformer):
         #     if param.grad is not None:
         #         print(f"Name: {name}, Gradient Size: {param.grad.size()}")
 
-        entity_emb = self.gnn(graphs.x, graphs.edge_index)
+        # entity_emb = self.gnn(graphs.x, graphs.edge_index)
+        entity_emb = self.conv0(graphs.x, graphs.edge_index)
 
-        start = [0]
-        for i in range(1, token_to_node_index.shape[0]):
-            # for j in range(token_to_node_index[i].shape[0]):
-            #     if token_to_node_index[i][j] != -1:
-            #         token_to_node_index[i][j] += len(graphs.x)
-            start.append(start[i-1] + len(graphs[i-1].x))
-        info_len = [min(tokens[i].shape[0], token_to_node_index[i].shape[0]) for i in range(tokens.shape[0])]
-        entity_to_token = []
-        for i in range(tokens.shape[0]):
-            entity_emb_batch_i = torch.cat((entity_emb[start[i]:start[i]+graphs[i].x.shape[0]], torch.tensor([0.0]*entity_emb[0].shape[0], dtype=torch.float32, device=entity_emb.device).reshape(1,-1)), dim=0)
-            emb = entity_emb_batch_i[[token_to_node_index[i]]]
-            entity_to_token.append(emb)
-        entity_to_token = torch.stack(entity_to_token, dim=0)
+        # start = [0]
+        # for i in range(1, token_to_node_index.shape[0]):
+        #     # for j in range(token_to_node_index[i].shape[0]):
+        #     #     if token_to_node_index[i][j] != -1:
+        #     #         token_to_node_index[i][j] += len(graphs.x)
+        #     start.append(start[i-1] + len(graphs[i-1].x))
+        # info_len = [min(tokens[i].shape[0], token_to_node_index[i].shape[0]) for i in range(tokens.shape[0])]
+        # entity_to_token = []
+        # for i in range(tokens.shape[0]):
+        #     entity_emb_batch_i = torch.cat((entity_emb[start[i]:start[i]+graphs[i].x.shape[0]], torch.tensor([0.0]*entity_emb[0].shape[0], dtype=torch.float32, device=entity_emb.device).reshape(1,-1)), dim=0)
+        #     emb = entity_emb_batch_i[[token_to_node_index[i]]]
+        #     entity_to_token.append(emb)
+        # entity_to_token = torch.stack(entity_to_token, dim=0)
 
         _bsz, seqlen = tokens.shape
         h = self.tok_embeddings(tokens)
@@ -552,12 +556,12 @@ class LMGNN(Transformer):
             )
             mask = torch.triu(mask, diagonal=start_pos + 1).type_as(h)
 
-        info_len = torch.tensor(info_len, dtype=torch.long, device=tokens.device)
-        expanded_info_len = info_len.unsqueeze(1).expand(h.shape[0], h.shape[1])
-        indices = torch.arange(h.size(1)).expand_as(expanded_info_len)
-        info_mask = indices < expanded_info_len
-        info_mask = info_mask.unsqueeze(-1).expand_as(h)
-        min_len = min(h.shape[1], entity_to_token.shape[1])
+        # info_len = torch.tensor(info_len, dtype=torch.long, device=tokens.device)
+        # expanded_info_len = info_len.unsqueeze(1).expand(h.shape[0], h.shape[1])
+        # indices = torch.arange(h.size(1)).expand_as(expanded_info_len)
+        # info_mask = indices < expanded_info_len
+        # info_mask = info_mask.unsqueeze(-1).expand_as(h)
+        # min_len = min(h.shape[1], entity_to_token.shape[1])
 
         # h_new = h.clone()
         # full_mask = torch.zeros_like(h_new, dtype=torch.bool)
@@ -572,7 +576,6 @@ class LMGNN(Transformer):
         # h[:,:min_len,:][info_mask] = h[:,:min_len,:][info_mask] + entity_to_token[:,:min_len,:][info_mask].half()
         
         # h[0,0,0] = entity_emb[0,0].half() + h[0,0,0].detach()
-        
         
         for i, layer in enumerate(self.layers):
             h = layer(h, start_pos, freqs_cis, mask)

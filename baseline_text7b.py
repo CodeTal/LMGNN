@@ -10,7 +10,7 @@ import tqdm
 import re
 from pathlib import Path
 
-from llama import Llama
+from llama.generation import Llama
 from typing import List
 from llama.model import Transformer, ModelArgs
 from llama.tokenizer import Tokenizer
@@ -48,10 +48,12 @@ def collate_fn(batch):
 data_path = 'data/csqa/train_sents.jsonl'
 dataset = LMGNNDataset(data_path)
 
-num_samples = 20
-sample_dataset = Subset(dataset, range(num_samples))
+acc = 0
 
-data_loader = DataLoader(sample_dataset, max_batch_size, shuffle=False, generator=torch.Generator(device='cuda'), collate_fn=collate_fn) 
+# num_samples = 20
+# sample_dataset = Subset(dataset, range(num_samples))
+
+data_loader = DataLoader(dataset, max_batch_size, shuffle=False, generator=torch.Generator(device='cuda'), collate_fn=collate_fn) 
 
 for sentences, answers in data_loader:
     sentences = [prefix + sentence + suffix for sentence in sentences]
@@ -63,10 +65,13 @@ for sentences, answers in data_loader:
     )
 
     for prompt, result, answer in zip(sentences, results, answers):
+        # if result['generation'][0] == answer:
+        #     acc += 1
         print(prompt),
         print(f"> {result['generation']}")
         print(f"> True answer: {answer}")
         print("\n==================================\n")
+print(acc / len(dataset))
 
 # # Model Preparation
 # ckpt_dir = "models/llama-2-7b/"

@@ -64,7 +64,7 @@ model.load_LM_state_dict(checkpoint)
 # Freeze the LM
 for param in model.parameters():
     param.requires_grad = False
-for param in model.gnn.parameters():
+for param in model.layers[-1].parameters():
     param.requires_grad = True
 
 # Dataset Preparation
@@ -97,13 +97,36 @@ def collate_fn(batch):
 data_loader = DataLoader(dataset, batch_size, shuffle=False, generator=torch.Generator(device='cuda'), collate_fn=collate_fn)
 
 # Training
-learning_rate = 0.001
+learning_rate = 0.00001
 num_epochs = 10
 
 loss_function = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 model.train()
-torch.autograd.set_detect_anomaly(True)
+
+temperature = 0.6
+
+# graphs_loader = GraphDataLoader(
+#             [sent_graphs[i] for i in range(50)], 
+#             batch_size, shuffle=False, 
+#             generator=torch.Generator(device='cuda')
+#             )
+# graphs = next(iter(graphs_loader))
+# graphs = torch.tensor(graphs.to_list())
+
+
+
+
+# train_sent = 'The sanctions against the school were a punishing blow, and they seemed to what the efforts the school had made to change? A) ignore B) enforce C) authoritarian D) yell at E) avoid'
+# train_sent = tokenizer.encode(train_sent, bos=True, eos=False)
+# train_sent = torch.tensor(train_sent, dtype=torch.long, device="cuda").unsqueeze(0)
+
+# print(model(train_sent, _, 0, graphs))
+# print('AA')
+
+
+
+
 
 for epoch in range(num_epochs):
     total_loss = 0
@@ -141,7 +164,13 @@ for epoch in range(num_epochs):
             # eos_reached = eos_reached.detach()
             
             # loss = loss_function(logits[-1:, :], tokenized_ans.view(-1)).to(device)
-            loss = loss_function(logits[:, -1, :], tokenized_ans.view(-1)).to(device)
+            probs = torch.softmax(logits[:, -1] / temperature, dim=-1)
+            # print(probs.shape)
+            # print(probs[0, :10])
+            # print(logits[:, -1, :10])
+            loss = loss_function(probs, tokenized_ans.view(-1)).to(device)
+            print(probs[:30])
+            print(loss)
             # from torchviz import make_dot
             # make_dot(loss).render("attached", format="pdf")
         # print('AA')
@@ -150,7 +179,13 @@ for epoch in range(num_epochs):
         # print(sent_tokens)
         # print(loss)
         # print('BB')
+        # pr-int('AA')
             print(loss)
+
+            # for name,parameters in model.layers[-1].named_parameters():
+            #     print(name,':',parameters)
+            #     print(name,':',parameters.grad)
+
             loss.backward()
             optimizer.step()
             # total_loss = total_loss + loss.item()
