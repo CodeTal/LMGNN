@@ -10,6 +10,8 @@
 | Vanilla GPT2-Small   | 5.7%  | 4.1%  |
 | Full-finetune GPT2-Small   | 70.1%  | 20.5%  |
 
+The test data and checkpoint can be accessed via [Google Drive](https://drive.google.com/file/d/13lJeNpHfHJbvydBSCOOnh0hv684pmxpj/view?usp=share_link).
+
 ## Prapare the Environment
 
 You should follow the steps described in install_steps.txt to install the Python environment.
