@@ -2,6 +2,14 @@
 
 #### Note: You should run the scripts in ./my_project_gpt2, since the Llama2 version of our model is still buggy
 
+## We have got results using a pretrained GPT-2.
+
+| Method  | CSQA-train | CSQA-test |
+| ------------- | ------------- | ------------- |
+| LMGNN-GPT2-Small  | 20.9%  | 21.5%  |
+| Vanilla GPT2-Small   | 5.7%  | 4.1%  |
+| Full-finetune GPT2-Small   | 70.1%  | 20.5%  |
+
 ## Prapare the Environment
 
 You should follow the steps described in install_steps.txt to install the Python environment.
