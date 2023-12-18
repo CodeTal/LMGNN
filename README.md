@@ -1,5 +1,7 @@
 # LMGNN
 
+#### Note: You should run the scripts in ./my_project_gpt2, since the Llama2 version of our model is still buggy
+
 ## Prapare the Environment
 
 You should follow the steps described in install_steps.txt to install the Python environment.
@@ -10,8 +12,12 @@ You can use preprocess.py to preprocess the dataset for training. Note that the 
 
 ## Train the LMGNN Model
 
-You can use train.py to train the model.
+You can use my_project_gpt2/main.py to train the model.
 
 ## Get the Results
 
-You can use baseline_chat7b.py and baseline_text7b.py to evaluate the Vanilla Llama2 model. You can also run train_hf.py to finetune the Llama2 model with LoRA.
+You can use baseline_lmgnn.py and baseline_full_ft.py to evaluate our model and baseline.
+
+## Checkpoints
+
+Our trained checkpoints will be uploaded to Github.
