@@ -10,7 +10,7 @@ import tqdm
 import re
 from pathlib import Path
 
-from llama.model import LMGNN, ModelArgs
+from llama.model import LMGNN, Transformer, ModelArgs
 from llama.tokenizer import Tokenizer
 from data_util import LMGNNDataset
 
@@ -65,13 +65,43 @@ model.load_LM_state_dict(checkpoint)
 for param in model.parameters():
     param.requires_grad = False
 for param in model.layers[-1].parameters():
-    param.requires_grad = True
+    param.requires_grad = False
+# model.norm.weight.requires_grad = True
+model.output.weight.requires_grad = True
+
+# train_sent = 'The sanctions against the school were a punishing blow, and they seemed to what the efforts the school had made to change? A) ignore B) enforce C) authoritarian D) yell at E) avoid'
+# train_sent = tokenizer.encode(train_sent, bos=True, eos=False)
+# train_sent = torch.tensor(train_sent, dtype=torch.long, device="cuda").unsqueeze(0)
+
+# print(train_sent.shape)
+# logits = model(train_sent, '_', 0, '_')
+# print(logits.shape)
+# probs = torch.softmax(logits[:, -1], dim=-1)
+# print(probs.shape)
+# loss_func = nn.CrossEntropyLoss()
+# loss = loss_func(probs, torch.tensor([13], dtype=torch.long, device="cuda"))
+# print(probs.argmax(dim=-1))
+# print(loss)
+# print(tokenizer.decode(torch.argmax(logits, dim=-1).tolist()))
+
+# for param in model.layers[-1].parameters():
+#     print(param.grad)
+# print(model.norm.weight.grad)
+# print(model.output.weight.grad)
+# print('------------------')
+# loss.backward()
+# for param in model.layers[-1].parameters():
+#     print(param.grad)
+# print(model.output.weight.grad)
+# exit(0)
+# ! gradient vanishing problem
 
 # Dataset Preparation
 batch_size = 1
 
 train_path = 'data/csqa/train_sents.jsonl'
 dataset = LMGNNDataset(train_path)
+dataset = torch.utils.data.Subset(dataset, range(50))
 
 sent_graph_path = 'data/csqa/sent_graphs.pt'
 sent_graphs = torch.load(sent_graph_path, map_location=torch.device('cuda'))
@@ -97,14 +127,18 @@ def collate_fn(batch):
 data_loader = DataLoader(dataset, batch_size, shuffle=False, generator=torch.Generator(device='cuda'), collate_fn=collate_fn)
 
 # Training
-learning_rate = 0.00001
+learning_rate = 1e-5
+weight_decay = 1e-2
+
 num_epochs = 10
 
 loss_function = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+optimizer = optim.AdamW(model.output.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
 model.train()
 
 temperature = 0.6
+
 
 # graphs_loader = GraphDataLoader(
 #             [sent_graphs[i] for i in range(50)], 
@@ -114,15 +148,6 @@ temperature = 0.6
 # graphs = next(iter(graphs_loader))
 # graphs = torch.tensor(graphs.to_list())
 
-
-
-
-# train_sent = 'The sanctions against the school were a punishing blow, and they seemed to what the efforts the school had made to change? A) ignore B) enforce C) authoritarian D) yell at E) avoid'
-# train_sent = tokenizer.encode(train_sent, bos=True, eos=False)
-# train_sent = torch.tensor(train_sent, dtype=torch.long, device="cuda").unsqueeze(0)
-
-# print(model(train_sent, _, 0, graphs))
-# print('AA')
 
 
 
@@ -164,13 +189,55 @@ for epoch in range(num_epochs):
             # eos_reached = eos_reached.detach()
             
             # loss = loss_function(logits[-1:, :], tokenized_ans.view(-1)).to(device)
-            probs = torch.softmax(logits[:, -1] / temperature, dim=-1)
+            probs = logits[:, -1:, :]
             # print(probs.shape)
             # print(probs[0, :10])
             # print(logits[:, -1, :10])
-            loss = loss_function(probs, tokenized_ans.view(-1)).to(device)
-            print(probs[:30])
+            print('Initial')
+            # for param in model.layers[-1].parameters():
+            #     print(param.grad)
+            # print(model.norm.weight.grad)
+            # print(model.output.weight.grad)
+            for param in model.layers[-1].parameters():
+                print(param)
+            print(model.norm.weight)
+            print(model.output.weight)    
+            print('-' * 10)
+            loss = loss_function(probs.view(-1, tokenizer.n_words), tokenized_ans.view(-1)).to(device)
+            loss.backward()
+            print('After backward')
+            # for param in model.layers[-1].parameters():
+            #     print(param.grad)
+            # print(model.norm.weight.grad)
+            # print(model.output.weight.grad)
+            for param in model.layers[-1].parameters():
+                print(param)
+            print(model.norm.weight)
+            print(model.output.weight)  
             print(loss)
+            print('-' * 10)
+            optimizer.step()
+            print('After step')
+            for param in model.layers[-1].parameters():
+                print(param.grad)
+            print(model.norm.weight.grad)
+            print(model.output.weight.grad)
+            for param in model.layers[-1].parameters():
+                print(param)
+            print(model.norm.weight)
+            print(model.output.weight)  
+            print('-' * 10)
+            optimizer.zero_grad()
+            print('After zero grad')
+            for param in model.layers[-1].parameters():
+                print(param.grad)
+            print(model.norm.weight.grad)
+            print(model.output.weight.grad)
+            for param in model.layers[-1].parameters():
+                print(param)
+            print(model.norm.weight)
+            print(model.output.weight)
+            print('-' * 10)
             # from torchviz import make_dot
             # make_dot(loss).render("attached", format="pdf")
         # print('AA')
@@ -180,14 +247,10 @@ for epoch in range(num_epochs):
         # print(loss)
         # print('BB')
         # pr-int('AA')
-            print(loss)
-
             # for name,parameters in model.layers[-1].named_parameters():
             #     print(name,':',parameters)
             #     print(name,':',parameters.grad)
 
-            loss.backward()
-            optimizer.step()
             # total_loss = total_loss + loss.item()
 
         # if min_prompt_len == total_len:

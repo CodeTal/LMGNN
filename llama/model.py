@@ -524,7 +524,6 @@ class LMGNN(Transformer):
         #         print(f"Name: {name}, Gradient Size: {param.grad.size()}")
 
         # entity_emb = self.gnn(graphs.x, graphs.edge_index)
-        entity_emb = self.conv0(graphs.x, graphs.edge_index)
 
         # start = [0]
         # for i in range(1, token_to_node_index.shape[0]):
